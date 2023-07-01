@@ -20,7 +20,7 @@ const (
 	screenWidth  = 640
 	screenHeight = 480
 
-	meterToPixelRate = 5
+	meterToPixelRate = 3
 )
 
 var (

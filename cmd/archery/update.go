@@ -2,18 +2,68 @@ package main
 
 import (
 	"archery/physics"
+	"math"
 	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 func (g *Game) Update() error {
-	g.updateArrow()
+	g.updateAimLine()
+	g.updateArrows()
 
 	return nil
 }
 
-func (g *Game) updateArrow() {
-	//TODO:
-	sinceStart := time.Duration(0) // time.Since(g.start)
-	g.arrow.Position = physics.GetArrowPosition(sinceStart, g.arrow.Speed, g.arrow.InitialAngle, g.bow.Position)
-	// g.arrow.Angle = physics.GetArrowAngle(sinceStart, g.arrow.Speed, g.arrow.InitialAngle)
+func (g *Game) updateAimLine() {
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		g.aimLine.IsActive = true
+
+		x, y := ebiten.CursorPosition()
+		g.aimLine.startPositionX, g.aimLine.startPositionY = x, g.screen.Bounds().Dy()-y
+	}
+
+	if inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft) > 0 {
+		x, y := ebiten.CursorPosition()
+		g.aimLine.endPositionX, g.aimLine.endPositionY = x, g.screen.Bounds().Dy()-y
+		g.updateBow()
+		//TODO: g.bow.Angle = based on aim line
+	}
+
+	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+		g.aimLine.IsActive = false
+		g.shoot()
+	}
+}
+
+func (g *Game) updateBow() {
+	x, y := g.aimLine.endPositionX-g.aimLine.startPositionX, g.aimLine.endPositionY-g.aimLine.startPositionY
+	length := math.Sqrt(math.Pow(float64(x), 2) + math.Pow(float64(y), 2))
+	g.bow.InitialSpeed = length
+	g.bow.Angle = radToDegree(math.Acos(-float64(x) / length))
+}
+
+func radToDegree(rad float64) float64 {
+	return rad * (180.0 / math.Pi)
+}
+
+func (g *Game) shoot() {
+	g.arrow.StartTime = time.Now()
+	g.arrow.Speed = g.bow.InitialSpeed
+	g.arrow.InitialAngle = g.bow.Angle
+}
+
+func (g *Game) updateArrows() {
+	if g.arrow.IsShooted() {
+		sinceStart := time.Since(g.arrow.StartTime)
+		g.arrow.Position = physics.GetArrowPosition(sinceStart, g.arrow.Speed, g.arrow.InitialAngle, g.bow.Position)
+		// g.arrow.Angle = physics.GetArrowAngle(sinceStart, g.arrow.Speed, g.arrow.InitialAngle)
+	}
+
+	if g.arrow.Position.Y <= 0 {
+		g.arrow.StartTime = time.Time{}
+		g.arrow.Position = g.bow.Position
+		g.arrow.InitialAngle = g.bow.Angle
+	}
 }
